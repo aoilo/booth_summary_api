@@ -1,0 +1,44 @@
+version: '3.8'
+services:
+  booth-vrc-api-db:
+    # platform: linux/x86_64
+    image: mysql:5.7
+    command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_DATABASE: booth-vrc-api
+      MYSQL_ROOT_PASSWORD: boothapi
+      TZ: "Asia/Tokyo"
+    ports:
+      - "3337:3306"
+    volumes:
+      - ./mysql/data:/var/lib/mysql  # mysqlのデータを永続化
+      - ./mysql/init:/docker-entrypoint-initdb.d  # コンテナ起動時にSQLを発行
+      - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf  # 設定ファイルをバインド
+    restart: always
+  booth-vrc-api:
+    build: .
+    environment: 
+      TZ: Asia/Tokyo
+    image: node:18
+    tty: true
+    ports:
+      - "8007:8001"
+    volumes:
+      - .:/src
+    working_dir: /src
+    restart: always
+    depends_on: # 先に起動させるサーバを指定
+     - booth-vrc-api-db
+    # command: >
+    #   bash -c  "node /src/app/io/index.js &&
+    #   node /src/app/normal/index.js"
+    # command: node /src/index.js
+    networks:
+      - d_discord_bot_default
+      - booth_summary_api_default
+networks:
+    d_discord_bot_default:
+      external: true
+    booth_summary_api_default:
+      external: true
+     
