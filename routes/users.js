@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 
 const bcryptService = require('../services/bcrypt.service')
+const authService = require('../services/auth.service')
 const User = require('../models/User')
 
 router.get('/', function (req, res, next) {
@@ -18,8 +19,6 @@ router.post('/register', async (req, res, next) => {
         username: body.username,
       }
     })
-    console.log("AAAAAAAAAAAAAAAA")
-    console.log(userResult)
     if (userResult) {
       return res.status(400).json({ msg: 'すでにそのユーザー名は使用されています。' })
     }
@@ -27,7 +26,6 @@ router.post('/register', async (req, res, next) => {
       username: body.username,
       password: body.password,
     })
-    // console.log(123456789)
     res.status(201).json({ user: user.id })
   } catch (err) {
     res.status(500).send(err)
@@ -43,12 +41,11 @@ router.post('/login', async (req, res, next) => {
           username,
         },
       })
-      if (!userResult) {
+      if (userResult == null) {
         return res.status(400).json({ msg: 'Bad Request: User not found' })
       }
       if (bcryptService().comparePassword(password, userResult.password)) {
         const token = authService().issue({ id: userResult.id })
-
         return res.status(200).json({ token, userResult })
       }
     }
