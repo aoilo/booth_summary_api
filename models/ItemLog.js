@@ -8,6 +8,8 @@ const ItemLog = booth_db.define('item_logs', {
   like: { field: 'like', type: Sequelize.INTEGER },
   createdAt: { field: 'created_at', type: Sequelize.DATE, },
   updatedAt: { field: 'updated_at', type: Sequelize.DATE, }
-});
+}, {
+  tableName: 'item_logs'
+})
 
 module.exports = ItemLog

@@ -8,7 +8,7 @@ const hooks = {
     },
   }
 
-const User = booth_api_db.define('user', {
+const User = booth_api_db.define('users', {
   id       : { field: 'id'        , type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
   username : { field: 'username'   , type: Sequelize.STRING, unique: { msg: 'this id is already used' }, },
   password : { field: 'password' , type: Sequelize.STRING ,                    },
