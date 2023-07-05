@@ -1,6 +1,6 @@
 const express = require('express')
 const moment = require('moment')
-const { Op } = require('sequelize')
+const sequelize = require('../services/booth-db.service')
 const router = express.Router()
 const authenticate = require('../services/authenticate')
 const { BoothItem, ItemLog } = require('../models/index');
@@ -25,19 +25,26 @@ router.get('/getOne', authenticate, async (req, res, next) => {
 router.get('/getTopItems', authenticate, async (req, res, next) => {
   const oneWeekAgo = moment().subtract(7, 'days').toDate()
   try {
-    const items = await ItemLog.findAll({
-      where: {
-        created_at: {
-          [Op.gte]: oneWeekAgo
-        }
+    const result = await sequelize.query(`
+      SELECT il.*, bi.*
+      FROM item_logs as il
+      INNER JOIN (
+        SELECT MAX(id) as id
+        FROM item_logs
+        WHERE created_at >= :oneWeekAgo
+        GROUP BY item_id
+      ) as filter_il ON filter_il.id = il.id
+      LEFT JOIN boothitems as bi ON il.item_id = bi.id
+      ORDER BY il.\`like\` DESC
+      LIMIT :limit
+    `, {
+      replacements: {
+        oneWeekAgo,
+        limit: parseInt(req.query.limit),
       },
-      order: [
-        ['like', 'DESC']
-      ],
-      limit: parseInt(req.query.limit),
-      include: [BoothItem],
-    })
-    res.status(200).send(items)
+      type: sequelize.QueryTypes.SELECT
+    });
+    res.status(200).send(result)
   } catch (err) {
     res.status(500).send(err)
   }
