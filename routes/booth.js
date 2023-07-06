@@ -24,27 +24,36 @@ router.get('/getOne', authenticate, async (req, res, next) => {
 
 router.get('/getTopItems', authenticate, async (req, res, next) => {
   const oneWeekAgo = moment().subtract(7, 'days').toDate()
+
   try {
-    const result = await sequelize.query(`
-      SELECT il.*, bi.*
-      FROM item_logs as il
-      INNER JOIN (
-        SELECT MAX(id) as id
-        FROM item_logs
-        WHERE created_at >= :oneWeekAgo
-        GROUP BY item_id
-      ) as filter_il ON filter_il.id = il.id
-      LEFT JOIN boothitems as bi ON il.item_id = bi.id
-      ORDER BY il.\`like\` DESC
-      LIMIT :limit
-    `, {
-      replacements: {
-        oneWeekAgo,
-        limit: parseInt(req.query.limit),
+    const recentBoothItems = await BoothItem.findAll({
+      where: {
+        created_at: {
+          [Op.gte]: oneWeekAgo
+        }
+      }
+    })
+
+    const recentBoothItemIDs = recentBoothItems.map(boothItem => boothItem.id)
+
+    const items = await ItemLog.findAll({
+      where: {
+        item_id: {
+          [Op.in]: recentBoothItemIDs
+        }
       },
-      type: sequelize.QueryTypes.SELECT
-    });
-    res.status(200).send(result)
+      order: [
+        ['like', 'DESC']
+      ],
+      limit: parseInt(req.query.limit),
+      include: [{
+        model: BoothItem
+      }]
+    })
+
+    const uniqueItems = _.uniqBy(items, 'item_id');
+
+    res.status(200).send(uniqueItems)
   } catch (err) {
     res.status(500).send(err)
   }
