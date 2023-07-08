@@ -1,9 +1,11 @@
 const express = require('express')
 const moment = require('moment')
 const sequelize = require('../services/booth-db.service')
+const { Sequelize, Op } = require('sequelize')
+const _ = require('lodash')
 const router = express.Router()
 const authenticate = require('../services/authenticate')
-const { BoothItem, ItemLog } = require('../models/index');
+const { BoothItem, ItemLog } = require('../models/index')
 
 // router.get('/get', function (req, res, next) {
 //   res.send('respond with a resource')
@@ -12,7 +14,7 @@ const { BoothItem, ItemLog } = require('../models/index');
 router.get('/getOne', authenticate, async (req, res, next) => {
   try {
     const item = await BoothItem.findOne({
-      where:{
+      where: {
         data_product_id: req.query.data_product_id,
       }
     })
@@ -23,40 +25,97 @@ router.get('/getOne', authenticate, async (req, res, next) => {
 })
 
 router.get('/getTopItems', authenticate, async (req, res, next) => {
-  const oneWeekAgo = moment().subtract(7, 'days').toDate()
-
   try {
-    const recentBoothItems = await BoothItem.findAll({
-      where: {
-        created_at: {
-          [Op.gte]: oneWeekAgo
-        }
-      }
-    })
+    //　表示数指定　指定がない場合5件とする
+    const limit = parseInt(req.query.limit) || 5
 
-    const recentBoothItemIDs = recentBoothItems.map(boothItem => boothItem.id)
+    // ７日前の日付を格納
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
 
-    const items = await ItemLog.findAll({
-      where: {
-        item_id: {
-          [Op.in]: recentBoothItemIDs
-        }
-      },
-      order: [
-        ['like', 'DESC']
-      ],
-      limit: parseInt(req.query.limit),
-      include: [{
-        model: BoothItem
-      }]
-    })
-
-    const uniqueItems = _.uniqBy(items, 'item_id');
-
-    res.status(200).send(uniqueItems)
+    const result = await sequelize.query(`
+      SELECT boothitems.*, item_logs.likes
+      FROM boothitems
+      JOIN (
+        SELECT item_id, likes, created_at
+        FROM item_logs
+        WHERE (item_id, created_at) IN (
+          SELECT item_id, MAX(created_at)
+          FROM item_logs
+          GROUP BY item_id
+        )
+      ) as item_logs
+      ON boothitems.id = item_logs.item_id
+      WHERE boothitems.created_at >= :oneWeekAgo
+      ORDER BY item_logs.likes DESC
+      LIMIT :limit;
+    `, {
+      replacements: { limit: limit, oneWeekAgo: oneWeekAgo },
+      type: sequelize.QueryTypes.SELECT
+    });
+    res.status(200).send(result)
   } catch (err) {
     res.status(500).send(err)
   }
 })
+
+router.get('/getWeekSummary', authenticate, async (req, res, next) => {
+  try {
+    moment.locale('ja')  // 日本語に設定
+    const oneWeekAgo = moment().subtract(7, 'days').startOf('day').toDate()
+    const today = moment().endOf('day').toDate()
+    const result = []
+
+    for (let m = moment(oneWeekAgo); m.isBefore(today); m.add(1, 'days')) {
+      const dayStart = m.clone().startOf('day').toDate()
+      const dayEnd = m.clone().endOf('day').toDate()
+      const count = await BoothItem.count({
+        where: {
+          createdAt: {
+            [Op.gte]: dayStart,
+            [Op.lt]: dayEnd,
+          },
+        },
+      });
+      // moment.locale('ja');  // 日本語に設定
+      // const dayOfWeek = m.format('dddd'); 
+
+      result.push({ date: m.format('YYYY-MM-DD'), dayOfWeek: m.format('dddd'), count })
+    }
+    // res.json(result);
+    res.status(200).send(result)
+  } catch (err) {
+    res.status(500).send(err)
+  }
+})
+
+router.get('/getItemLikes', authenticate, async (req, res, next) => {
+  try {
+    const item_id = req.query.item_id
+    const itemLog = await ItemLog.findOne({
+      where: { data_product_id: item_id },
+      order: [['createdAt', 'DESC']]
+    })
+    res.status(200).send(itemLog)
+  } catch (err) {
+    res.status(500).send(err)
+  }
+});
+
+router.get('/getItemLogs', authenticate, async (req, res, next) => {
+  try {
+    const item_id = req.query.item_id
+    const itemLogs = await ItemLog.findAll({
+      where: { data_product_id: item_id },
+      order: [['createdAt', 'ASC']]
+    })
+    res.status(200).send(itemLogs)
+  } catch (err) {
+    console.log(err)
+    res.status(500).send(err)
+    console.log(err)
+  }
+})
+
 
 module.exports = router
