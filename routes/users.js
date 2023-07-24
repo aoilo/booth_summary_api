@@ -46,7 +46,7 @@ router.post('/login', async (req, res, next) => {
       }
       if (bcryptService().comparePassword(password, userResult.password)) {
         const token = authService().issue({ id: userResult.id })
-        return res.status(200).json({ token, userResult })
+        return res.status(200).json({ token })
       }
     }
     return res.status(401).json({ msg: 'usernameとpasswordを入力してください。' })
