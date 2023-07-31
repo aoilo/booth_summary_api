@@ -100,7 +100,7 @@ router.get('/getItemLikes', authenticate, async (req, res, next) => {
   } catch (err) {
     res.status(500).send(err)
   }
-});
+})
 
 router.get('/getItemLogs', authenticate, async (req, res, next) => {
   try {
@@ -113,7 +113,40 @@ router.get('/getItemLogs', authenticate, async (req, res, next) => {
   } catch (err) {
     console.log(err)
     res.status(500).send(err)
-    console.log(err)
+  }
+})
+
+router.get('/getAllSummary', async (req, res, next) => {
+  const startDate = req.query.startDate;
+  const endDate = req.query.endDate;
+  try {
+    if (!startDate || !endDate) {
+      const result = await sequelize.query(`
+      SELECT DATE(created_at) as date, COUNT(*) as count
+      FROM boothitems
+      GROUP BY date
+      ORDER BY date
+    `, { type: Sequelize.QueryTypes.SELECT});
+      
+      return res.status(200).send(result);
+    }
+
+    const result = await sequelize.query(`
+      SELECT DATE(created_at) as date, COUNT(*) as count
+      FROM boothitems
+      WHERE created_at >= :startDate AND created_at < :endDate
+      GROUP BY date
+      ORDER BY date
+    `, 
+    { 
+      replacements: { startDate: startDate, endDate: endDate },
+      type: Sequelize.QueryTypes.SELECT
+    })
+
+    res.status(200).send(result)
+  } catch (err) {
+    console.error(err)
+    res.status(500).send(err)
   }
 })
 
