@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-
+const path = require('path')
+const ENV_PATH = path.join(__dirname, '../.env')
+require('dotenv').config({path: ENV_PATH})
 /**
  * Module dependencies.
  */
