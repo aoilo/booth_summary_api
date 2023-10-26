@@ -29,25 +29,29 @@ const getTopItems = async (req, res, next) => {
         const oneWeekAgo = new Date();
         oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
 
+        const eightDaysAgo = new Date();
+        eightDaysAgo.setDate(eightDaysAgo.getDate() - 8);
+
         const result = await sequelize.query(`
-      SELECT boothitems.*, item_logs.likes
-      FROM boothitems
-      JOIN (
-        SELECT item_id, likes, created_at
-        FROM item_logs
-        WHERE (item_id, created_at) IN (
-          SELECT item_id, MAX(created_at)
-          FROM item_logs
-          GROUP BY item_id
-        )
-      ) as item_logs
-      ON boothitems.id = item_logs.item_id
-      WHERE boothitems.created_at >= :oneWeekAgo
-      ORDER BY item_logs.likes DESC
-      LIMIT :limit;
+SELECT boothitems.*, item_logs.likes
+FROM boothitems
+JOIN (
+  SELECT item_id, likes, created_at
+  FROM item_logs
+  WHERE (item_id, created_at) IN (
+    SELECT item_id, MAX(created_at)
+    FROM item_logs
+    WHERE created_at >= :eightDaysAgo
+    GROUP BY item_id
+  )
+) as item_logs
+ON boothitems.id = item_logs.item_id
+WHERE boothitems.created_at >= :oneWeekAgo
+ORDER BY item_logs.likes DESC
+LIMIT :limit;
     `, {
-            replacements: { limit: limit, oneWeekAgo: oneWeekAgo },
-            type: sequelize.QueryTypes.SELECT
+        replacements: { limit: limit, oneWeekAgo: oneWeekAgo, eightDaysAgo: eightDaysAgo },
+        type: sequelize.QueryTypes.SELECT
         });
         res.status(200).send(result)
     } catch (err) {

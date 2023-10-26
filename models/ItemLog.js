@@ -10,6 +10,13 @@ const ItemLog = booth_db.define('item_logs', {
   updatedAt: { field: 'updated_at', type: Sequelize.DATE, }
 }, {
   tableName: 'item_logs'
-})
+}, {
+  indexes: [
+    {
+      fields: ['item_id', 'created_at']
+    }
+  ]
+}
+)
 
 module.exports = ItemLog
