@@ -1,7 +1,14 @@
 const moment = require('moment')
+const Redis = require('ioredis');
 const sequelize = require('../services/booth-db.service')
 const { Sequelize, Op } = require('sequelize')
 const { BoothItem, ItemLog } = require('../models/index')
+const bc = require('./batch/updateGetTopItem')
+
+const client = new Redis({
+    host: 'redis',
+    port: 6379
+});
 
 // router.get('/get', function (req, res, next) {
 //   res.send('respond with a resource')
@@ -22,37 +29,18 @@ const getOne = async (req, res, next) => {
 
 const getTopItems = async (req, res, next) => {
     try {
-        //　表示数指定　指定がない場合5件とする
-        const limit = parseInt(req.query.limit) || 5
+        const cachedResult = await new Promise((resolve, reject) => {
+            client.get('topItemsCache', (err, reply) => {
+                if (err) reject(err)
+                resolve(reply)
+            })
+        })
 
-        // ７日前の日付を格納
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
-
-        const eightDaysAgo = new Date();
-        eightDaysAgo.setDate(eightDaysAgo.getDate() - 8);
-
-        const result = await sequelize.query(`
-SELECT boothitems.*, item_logs.likes
-FROM boothitems
-JOIN (
-  SELECT item_id, likes, created_at
-  FROM item_logs
-  WHERE (item_id, created_at) IN (
-    SELECT item_id, MAX(created_at)
-    FROM item_logs
-    WHERE created_at >= :eightDaysAgo
-    GROUP BY item_id
-  )
-) as item_logs
-ON boothitems.id = item_logs.item_id
-WHERE boothitems.created_at >= :oneWeekAgo
-ORDER BY item_logs.likes DESC
-LIMIT :limit;
-    `, {
-        replacements: { limit: limit, oneWeekAgo: oneWeekAgo, eightDaysAgo: eightDaysAgo },
-        type: sequelize.QueryTypes.SELECT
-        });
+        if (cachedResult) {
+            return res.status(200).send(JSON.parse(cachedResult))
+        }
+        
+        const result = await bc.getTopItemsData()
         res.status(200).send(result)
     } catch (err) {
         res.status(500).send(err)
