@@ -15,10 +15,6 @@ services:
       - ./mysql/init:/docker-entrypoint-initdb.d  # コンテナ起動時にSQLを発行
       - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf  # 設定ファイルをバインド
     restart: always
-  redis:
-    image: redis:latest
-    ports:
-      - 6379:6379
   booth-vrc-api:
     build: .
     environment: 
@@ -36,10 +32,7 @@ services:
     # command: >
     #   bash -c  "node /src/app/io/index.js &&
     #   node /src/app/normal/index.js"
-    # command: npm start
-    command: >
-      bash -c  "npm start &&
-      node /controllers/batch/updateGetTopItem.js"
+    command: npm start
     networks:
       - bocchi-chan-docker_default
       - booth_summary_api_default
